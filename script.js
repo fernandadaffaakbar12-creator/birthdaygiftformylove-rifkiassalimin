@@ -175,7 +175,7 @@
         const pinPopupClose = document.getElementById('pin-popup-close');
 
         // DEFAULT PIN: Silakan ubah angka ini jika ingin PIN lain
-        const SECRET_PIN = "1903";
+        const SECRET_PIN = "0501";
 
         let pinAttempt = 0;
         let popupTimeout = null;
@@ -494,11 +494,6 @@ function bukaKado() {
         if (landingPage) landingPage.style.display = 'none';
         if (mainContent) mainContent.classList.remove('hidden');
 
-        // Langsung putar kedua video bersamaan (otomatis ter-mute)
-        if (typeof putarKeduaVideoBersamaan === 'function') {
-            putarKeduaVideoBersamaan();
-        }
-
         jalankanAnimasiScroll();
     }, 450);
 }
@@ -596,17 +591,10 @@ function toggleMusic() {
     if (!bgMusic) return;
 
     if (bgMusic.paused) {
-        // Jika user menyalakan musik latar secara manual, otomatis mute semua video
-        if (typeof muteSemuaVideo === 'function') {
-            muteSemuaVideo(false);
-        }
         bgMusic.play().catch(console.error);
         iconPlay.style.display = 'none';
         iconPause.style.display = 'block';
     } else {
-        if (typeof resetBgMusicPausedByVideo === 'function') {
-            resetBgMusicPausedByVideo();
-        }
         bgMusic.pause();
         iconPlay.style.display = 'block';
         iconPause.style.display = 'none';
@@ -1237,260 +1225,3 @@ function buatConfetti() {
     // Gelombang 3: Hujan confetti lanjutan
     setTimeout(() => burstWave(40, 0), 2000);
 }
-
-// ==========================================
-// 6. FITUR 2 VIDEO KENANGAN (PUTAR BERSAMAAN, MUTE/UNMUTE & FULLSCREEN)
-// ==========================================
-let bgMusicPausedByVideo = false;
-
-function resetBgMusicPausedByVideo() {
-    bgMusicPausedByVideo = false;
-}
-
-function updateMusicPopupIcon(isPlaying) {
-    const iconPlay = document.getElementById('icon-play');
-    const iconPause = document.getElementById('icon-pause');
-    if (!iconPlay || !iconPause) return;
-
-    if (isPlaying) {
-        iconPlay.style.display = 'none';
-        iconPause.style.display = 'block';
-    } else {
-        iconPlay.style.display = 'block';
-        iconPause.style.display = 'none';
-    }
-}
-
-function updateVideoMuteUI(videoEl) {
-    if (!videoEl) return;
-    const card = videoEl.closest('.video-card');
-    if (!card) return;
-
-    const muteBtn = card.querySelector('.btn-mute-toggle');
-    const iconMuted = card.querySelector('.icon-muted');
-    const iconUnmuted = card.querySelector('.icon-unmuted');
-
-    if (videoEl.muted) {
-        card.classList.remove('video-unmuted');
-        if (muteBtn) muteBtn.classList.remove('active-unmuted');
-        if (iconMuted) iconMuted.style.display = 'block';
-        if (iconUnmuted) iconUnmuted.style.display = 'none';
-    } else {
-        card.classList.add('video-unmuted');
-        if (muteBtn) muteBtn.classList.add('active-unmuted');
-        if (iconMuted) iconMuted.style.display = 'none';
-        if (iconUnmuted) iconUnmuted.style.display = 'block';
-    }
-}
-
-function sinkronBacksoundDenganVideo() {
-    const bgMusic = document.getElementById('bg-music');
-    const semuaVideo = document.querySelectorAll('.memory-video');
-    if (!bgMusic || semuaVideo.length === 0) return;
-
-    // Cek apakah ada video yang sedang tidak di-mute dan sedang berputar
-    let adaVideoBersuara = false;
-    semuaVideo.forEach(v => {
-        if (!v.muted && !v.paused) {
-            adaVideoBersuara = true;
-        }
-    });
-
-    if (adaVideoBersuara) {
-        // Jika backsound sedang menyala, hentikan sementara
-        if (!bgMusic.paused) {
-            bgMusicPausedByVideo = true;
-            bgMusic.pause();
-            updateMusicPopupIcon(false);
-        }
-    } else {
-        // Jika semua video sudah ter-mute lagi dan sebelumnya backsound dihentikan oleh video, putar kembali
-        if (bgMusicPausedByVideo) {
-            bgMusicPausedByVideo = false;
-            bgMusic.play().then(() => {
-                updateMusicPopupIcon(true);
-            }).catch(err => {
-                console.log("Gagal melanjutkan musik latar:", err);
-            });
-        }
-    }
-}
-
-function muteSemuaVideo(resumeBacksound = true) {
-    const semuaVideo = document.querySelectorAll('.memory-video');
-    semuaVideo.forEach(v => {
-        v.muted = true;
-        updateVideoMuteUI(v);
-    });
-    if (resumeBacksound) {
-        sinkronBacksoundDenganVideo();
-    } else {
-        bgMusicPausedByVideo = false;
-    }
-}
-
-function putarKeduaVideoBersamaan() {
-    const semuaVideo = document.querySelectorAll('.memory-video');
-    semuaVideo.forEach(v => {
-        v.play().catch(() => {
-            // Jika browser menahan autoplay, pastikan muted lalu coba lagi
-            v.muted = true;
-            updateVideoMuteUI(v);
-            v.play().catch(() => {});
-        });
-    });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const semuaVideo = document.querySelectorAll('.memory-video');
-    const tombolMute = document.querySelectorAll('.btn-mute-toggle');
-    const tombolFullscreen = document.querySelectorAll('.btn-fullscreen-toggle');
-    const videoSection = document.getElementById('video-memories-section');
-
-    // Pastikan di awal semua video otomatis ter-mute dan langsung berputar bersamaan
-    semuaVideo.forEach(video => {
-        video.defaultMuted = true;
-        video.muted = true;
-        updateVideoMuteUI(video);
-
-        // Klik pada area video untuk toggle play/pause (atau melanjutkan keduanya)
-        video.addEventListener('click', () => {
-            if (video.paused) {
-                video.play().catch(() => {});
-            } else {
-                video.pause();
-            }
-        });
-
-        // Sinkronisasi saat status mute/volume atau play/pause berubah (termasuk dari kontrol native fullscreen)
-        video.addEventListener('volumechange', () => {
-            if (!video.muted) {
-                // Otomatis mute video lainnya jika video ini di-unmute
-                semuaVideo.forEach(other => {
-                    if (other !== video && !other.muted) {
-                        other.muted = true;
-                        updateVideoMuteUI(other);
-                    }
-                });
-            }
-            updateVideoMuteUI(video);
-            sinkronBacksoundDenganVideo();
-        });
-
-        video.addEventListener('play', () => {
-            sinkronBacksoundDenganVideo();
-        });
-
-        video.addEventListener('pause', () => {
-            sinkronBacksoundDenganVideo();
-        });
-
-        // Saat keluar dari fullscreen native iOS, pastikan kedua video tetap berputar bersamaan
-        video.addEventListener('webkitendfullscreen', () => {
-            putarKeduaVideoBersamaan();
-        });
-    });
-
-    // Event tombol Mute / Unmute
-    tombolMute.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const targetId = btn.getAttribute('data-video');
-            const video = document.getElementById(targetId);
-            if (!video) return;
-
-            if (video.muted) {
-                // Mute video lain secara otomatis agar suara tidak bertabrakan
-                semuaVideo.forEach(other => {
-                    if (other !== video) {
-                        other.muted = true;
-                        updateVideoMuteUI(other);
-                    }
-                });
-
-                // Unmute video yang dipilih & pastikan berputar
-                video.muted = false;
-                if (video.paused) {
-                    video.play().catch(() => {});
-                }
-                updateVideoMuteUI(video);
-                sinkronBacksoundDenganVideo();
-            } else {
-                // Mute kembali video
-                video.muted = true;
-                updateVideoMuteUI(video);
-                sinkronBacksoundDenganVideo();
-            }
-        });
-    });
-
-    // Event tombol Full Screen
-    tombolFullscreen.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const targetId = btn.getAttribute('data-video');
-            const video = document.getElementById(targetId);
-            if (!video) return;
-            const card = video.closest('.video-card');
-
-            // Cek jika sedang dalam mode custom-fullscreen
-            if (card && card.classList.contains('custom-fullscreen')) {
-                card.classList.remove('custom-fullscreen');
-                putarKeduaVideoBersamaan();
-                return;
-            }
-
-            // Cek jika sedang dalam mode Fullscreen API standar
-            const fsElement = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
-            if (fsElement) {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-                return;
-            }
-
-            // Masuk ke mode Full Screen
-            if (card && card.requestFullscreen) {
-                card.requestFullscreen().catch(() => {
-                    card.classList.add('custom-fullscreen');
-                });
-            } else if (card && card.webkitRequestFullscreen) {
-                card.webkitRequestFullscreen();
-            } else if (video.webkitEnterFullscreen) {
-                // Fallback khusus iOS Safari
-                video.webkitEnterFullscreen();
-            } else if (card) {
-                card.classList.add('custom-fullscreen');
-            }
-        });
-    });
-
-    // Saat keluar dari Fullscreen standar, pastikan kedua video tetap berputar bersamaan
-    document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement) {
-            putarKeduaVideoBersamaan();
-        }
-    });
-    document.addEventListener('webkitfullscreenchange', () => {
-        if (!document.webkitFullscreenElement) {
-            putarKeduaVideoBersamaan();
-        }
-    });
-
-    // Pastikan kedua video langsung berputar bersamaan saat bagian video terlihat di layar
-    if (videoSection && 'IntersectionObserver' in window) {
-        const videoObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    putarKeduaVideoBersamaan();
-                }
-            });
-        }, { threshold: 0.15 });
-
-        videoObserver.observe(videoSection);
-    }
-});
